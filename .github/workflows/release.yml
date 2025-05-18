@@ -1,0 +1,120 @@
+name: Publish LivingTool Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  APP_NAME: livingtool
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Build binaries
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      # Linux builds
+      - name: Package Binary for Linux x64
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          dotnet publish ./src/LivingTool.Console/LivingTool.Console.csproj  -r linux-x64 -c Release -o bin/linux-x64
+          mv bin/linux-x64/LivingTool.Console bin/linux-x64/$APP_NAME
+
+      # macOS builds
+      - name: Package Binary for macOS x64
+        if: matrix.os == 'macos-latest'
+        run: |
+          dotnet publish ./src/LivingTool.Console/LivingTool.Console.csproj  -r osx-x64 -c Release -o bin/osx-x64
+          mv bin/osx-x64/LivingTool.Console bin/osx-x64/$APP_NAME
+
+      - name: Package Binary for macOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: |
+          dotnet publish ./src/LivingTool.Console/LivingTool.Console.csproj  -r osx-arm64 -c Release -o bin/osx-arm64
+          mv bin/osx-arm64/LivingTool.Console bin/osx-arm64/$APP_NAME
+
+      # Windows builds
+      - name: Package Binary for Windows x64
+        if: matrix.os == 'windows-latest'
+        run: |
+          dotnet publish ./src/LivingTool.Console/LivingTool.Console.csproj  -r win-x64 -c Release -o bin/win-x64
+          dir bin\win-x64\
+          echo Renaming to %APP_NAME%.exe
+          if exist "bin\win-x64\LivingTool.Console.exe" (
+            ren "bin\win-x64\LivingTool.Console.exe" "%APP_NAME%.exe"
+          ) else (
+            echo "Executable not found, skipping rename."
+          )
+        shell: cmd
+
+      - name: Upload binaries for Linux x64
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: bin/linux-x64/livingtool
+
+      - name: Upload binaries for macOS x64
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: osx-x64
+          path: bin/osx-x64/livingtool
+
+      - name: Upload binaries for macOS ARM64
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: osx-arm64
+          path: bin/osx-arm64/livingtool
+
+      - name: Upload binaries for Windows x64
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: bin/win-x64/livingtool.exe
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: "📦 Package windows x64"
+        run: |
+          zip -r livingtool-win-x64.zip win-x64 -j
+          gh release upload ${{ github.event.release.tag_name }} livingtool-win-x64.zip
+
+      - name: "📦 Package macOS x64"
+        run: |
+          zip -r livingtool-osx-x64.zip osx-x64 -j
+          gh release upload ${{ github.event.release.tag_name }} livingtool-osx-x64.zip
+
+      - name: "📦 Package macOS ARM64"
+        run: |
+          zip -r livingtool-osx-arm64.zip osx-arm64 -j
+          gh release upload ${{ github.event.release.tag_name }} livingtool-osx-arm64.zip
+
+      - name: "📦 Package linux x64"
+        run: |
+          zip -r livingtool-linux-x64.zip linux-x64 -j
+          gh release upload ${{ github.event.release.tag_name }} livingtool-linux-x64.zip
