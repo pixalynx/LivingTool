@@ -2,7 +2,7 @@
 
 A command-line tool for unpacking and analyzing Guardians Crusade game files. LivingTool helps you extract and explore data from the game binary files.
 
-[![Publish LivingTool Release](https://github.com/user/LivingTool/actions/workflows/release.yml/badge.svg)](https://github.com/user/LivingTool/actions/workflows/release.yml)
+[![Publish LivingTool Release](https://github.com/pixalynx/LivingTool/actions/workflows/release.yml/badge.svg)](https://github.com/pixalynx/LivingTool/actions/workflows/release.yml)
 
 ## Features
 
