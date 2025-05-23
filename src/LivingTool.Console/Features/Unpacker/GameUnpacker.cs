@@ -5,7 +5,7 @@ namespace LivingTool.Console.Features.Unpacker;
 
 public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
 {
-    public  async Task Unpack(string filePath, string outputDirectory, string locSectorsFile)
+    public async Task Unpack(string filePath, string outputDirectory, string locSectorsFile)
     {
         // Create the folders if they don't exist
         if (!Directory.Exists(outputDirectory))
@@ -26,7 +26,7 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
         var seenEntries = new HashSet<(int Sector, int Size)>();
         int index = 1;
 
-        // Read the LOC sectors
+        // ReadBytes the LOC sectors
         foreach (var (sectorNumber, sizeInSectors) in fileService.ReadLocSectors(locSectorsFile))
         {
             // Check if the entry has already been seen
@@ -63,6 +63,14 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
         // Report the number of files extracted
         AnsiConsole.WriteLine($"Extracted {seenEntries.Count} files");
         AnsiConsole.WriteLine("Unpacking completed successfully.");
+    }
+
+    public async Task UnpackLocSectors(string filePath, string outputFileName)
+    {
+        AnsiConsole.WriteLine($"Unpacking LOC sectors from {filePath} to {outputFileName}");
+        byte[] contents = fileService.ExtractSectionFromFile(filePath, LocSectorConstants.StartOffset, LocSectorConstants.EndOffset);
+        AnsiConsole.WriteLine($"Writing LOC sectors to {outputFileName}");
+        await fileService.WriteFileAsync(outputFileName, contents);
     }
 
     public Task Repack()
@@ -128,7 +136,8 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
                 string gapEndTime = SectorToTimeString(gapEnd);
                 int gapLength = gapEnd - gapStart + 1;
 
-                AnsiConsole.WriteLine($"Gap between sectors: {gapStart}-{gapEnd} or {gapStartTime} to {gapEndTime} with length {gapLength} Sectors");
+                AnsiConsole.WriteLine(
+                    $"Gap between sectors: {gapStart}-{gapEnd} or {gapStartTime} to {gapEndTime} with length {gapLength} Sectors");
             }
         }
     }

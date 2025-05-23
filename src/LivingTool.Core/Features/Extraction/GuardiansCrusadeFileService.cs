@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace LivingTool.Core.Features.Extraction;
 
 public class GuardiansCrusadeFileService : IGuardiansCrusadeFileService
@@ -8,51 +10,60 @@ public class GuardiansCrusadeFileService : IGuardiansCrusadeFileService
         byte[] contents = new byte[lengthInSectors * SectorConstants.SectorSize];
         int mSectorNumber = FolderConstants.Folders["M"];
 
-        using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+        using FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        fs.Seek(startOffset, SeekOrigin.Begin);
+        for (int i = 0; i < lengthInSectors; i++)
         {
-            fs.Seek(startOffset, SeekOrigin.Begin);
-            for (int i = 0; i < lengthInSectors; i++)
+            if (sectorNumber >= mSectorNumber)
             {
-                if (sectorNumber >= mSectorNumber)
+                // Skip STR header
+                fs.Seek(SectorConstants.StrHeaderSize, SeekOrigin.Current);
+
+                // ReadBytes STR content
+                byte[] buffer = new byte[SectorConstants.StrContentSize];
+                int bytesRead = fs.Read(buffer, 0, SectorConstants.StrContentSize);
+
+                if (bytesRead != SectorConstants.StrContentSize)
                 {
-                    // Skip STR header
-                    fs.Seek(SectorConstants.StrHeaderSize, SeekOrigin.Current);
-
-                    // Read STR content
-                    byte[] buffer = new byte[SectorConstants.StrContentSize];
-                    int bytesRead = fs.Read(buffer, 0, SectorConstants.StrContentSize);
-
-                    if (bytesRead != SectorConstants.StrContentSize)
-                    {
-                        throw new IOException($"Failed to read STR content. Expected {SectorConstants.StrContentSize} bytes, but got {bytesRead}.");
-                    }
-
-                    Buffer.BlockCopy(buffer, 0, contents, i * SectorConstants.StrContentSize, SectorConstants.StrContentSize);
+                    throw new IOException($"Failed to read STR content. Expected {SectorConstants.StrContentSize} bytes, but got {bytesRead}.");
                 }
 
-                else
+                Buffer.BlockCopy(buffer, 0, contents, i * SectorConstants.StrContentSize, SectorConstants.StrContentSize);
+            }
+
+            else
+            {
+                // Skip header
+                fs.Seek(SectorConstants.HeaderSize, SeekOrigin.Current);
+
+                // ReadBytes content
+                byte[] buffer = new byte[SectorConstants.ContentSize];
+                int bytesRead = fs.Read(buffer, 0, SectorConstants.ContentSize);
+
+                if (bytesRead != SectorConstants.ContentSize)
                 {
-                    // Skip header
-                    fs.Seek(SectorConstants.HeaderSize, SeekOrigin.Current);
-
-                    // Read content
-                    byte[] buffer = new byte[SectorConstants.ContentSize];
-                    int bytesRead = fs.Read(buffer, 0, SectorConstants.ContentSize);
-
-                    if (bytesRead != SectorConstants.ContentSize)
-                    {
-                        throw new IOException($"Failed to read content. Expected {SectorConstants.ContentSize} bytes, but got {bytesRead}.");
-                    }
-
-                    // Skip footer
-                    fs.Seek(SectorConstants.FooterSize, SeekOrigin.Current);
-
-                    Buffer.BlockCopy(buffer, 0, contents, i * SectorConstants.ContentSize, SectorConstants.ContentSize);
+                    throw new IOException($"Failed to read content. Expected {SectorConstants.ContentSize} bytes, but got {bytesRead}.");
                 }
+
+                // Skip footer
+                fs.Seek(SectorConstants.FooterSize, SeekOrigin.Current);
+
+                Buffer.BlockCopy(buffer, 0, contents, i * SectorConstants.ContentSize, SectorConstants.ContentSize);
             }
         }
 
         return contents;
+    }
+
+    public byte[] ExtractSectionFromFile(string filePath, int startOffset, int endOffset)
+    {
+        // Extract a section from the file
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        fs.Seek(startOffset, SeekOrigin.Begin);
+        var length = endOffset - startOffset;
+        var buffer = new byte[length];
+        fs.ReadExactly(buffer, 0, length);
+        return buffer;
     }
 
     public void CreateFolders(string filePath)

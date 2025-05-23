@@ -9,5 +9,6 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.AddCommand<RunCommand>("run");
+    config.AddCommand<ReadCommand>("read");
 });
 return app.Run(args);
