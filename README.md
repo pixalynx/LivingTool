@@ -14,7 +14,7 @@ A command-line tool for unpacking and analyzing Guardians Crusade game files. Li
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/user/LivingTool/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/pixalynx/LivingTool/releases) page:
 
 - Windows: `livingtool-win-x64.zip`
 - macOS (Intel): `livingtool-osx-x64.zip`
