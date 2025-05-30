@@ -2,7 +2,7 @@ using System.Text;
 
 namespace LivingTool.Core.Features.Extraction;
 
-public class GuardiansCrusadeFileService : IGuardiansCrusadeFileService
+public class FileExtractionService : IFileExtractionService
 {
     public byte[] ExtractFile(string filePath, int sectorNumber, int lengthInSectors)
     {
@@ -10,7 +10,7 @@ public class GuardiansCrusadeFileService : IGuardiansCrusadeFileService
         byte[] contents = new byte[lengthInSectors * SectorConstants.SectorSize];
         int mSectorNumber = FolderConstants.Folders["M"];
 
-        using FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read);
         fs.Seek(startOffset, SeekOrigin.Begin);
         for (int i = 0; i < lengthInSectors; i++)
         {

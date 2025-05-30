@@ -3,7 +3,7 @@ using Spectre.Console;
 
 namespace LivingTool.Console.Features.Unpacker;
 
-public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
+public class GameUnpacker(IFileExtractionService fileExtractionService) : IUnpacker
 {
     public async Task Unpack(string filePath, string outputDirectory, string locSectorsFile)
     {
@@ -16,7 +16,7 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
 
         // Create the folders for each sector
         AnsiConsole.WriteLine($"Creating folders in output directory: {outputDirectory}");
-        fileService.CreateFolders(outputDirectory);
+        fileExtractionService.CreateFolders(outputDirectory);
 
         // Sorted folders
         var sortedFolders = FolderConstants.Folders
@@ -27,7 +27,7 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
         int index = 1;
 
         // ReadBytes the LOC sectors
-        foreach (var (sectorNumber, sizeInSectors) in fileService.ReadLocSectors(locSectorsFile))
+        foreach (var (sectorNumber, sizeInSectors) in fileExtractionService.ReadLocSectors(locSectorsFile))
         {
             // Check if the entry has already been seen
             if (seenEntries.Contains((sectorNumber, sizeInSectors)))
@@ -38,15 +38,15 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
 
             // Extract the file
             AnsiConsole.WriteLine($"Extracting file from sector {sectorNumber} with size {sizeInSectors}");
-            var contents = fileService.ExtractFile(filePath, sectorNumber, sizeInSectors);
+            var contents = fileExtractionService.ExtractFile(filePath, sectorNumber, sizeInSectors);
 
             // Get the folder name from the sector number
-            string folderName = fileService.GetFolderNameFromSector(sectorNumber, sortedFolders);
+            string folderName = fileExtractionService.GetFolderNameFromSector(sectorNumber, sortedFolders);
             string outputFilePath = Path.Combine(outputDirectory, folderName, $"{index:D3}.bin");
 
             // Write the file to disk
             AnsiConsole.WriteLine($"Writing file to {outputFilePath}");
-            await fileService.WriteFileAsync(outputFilePath, contents);
+            await fileExtractionService.WriteFileAsync(outputFilePath, contents);
 
             seenEntries.Add((sectorNumber, sizeInSectors));
             index++;
@@ -68,9 +68,9 @@ public class GameUnpacker(IGuardiansCrusadeFileService fileService) : IUnpacker
     public async Task UnpackLocSectors(string filePath, string outputFileName)
     {
         AnsiConsole.WriteLine($"Unpacking LOC sectors from {filePath} to {outputFileName}");
-        byte[] contents = fileService.ExtractSectionFromFile(filePath, LocSectorConstants.StartOffset, LocSectorConstants.EndOffset);
+        byte[] contents = fileExtractionService.ExtractSectionFromFile(filePath, LocSectorConstants.StartOffset, LocSectorConstants.EndOffset);
         AnsiConsole.WriteLine($"Writing LOC sectors to {outputFileName}");
-        await fileService.WriteFileAsync(outputFileName, contents);
+        await fileExtractionService.WriteFileAsync(outputFileName, contents);
     }
 
     public Task Repack()

@@ -1,6 +1,6 @@
 namespace LivingTool.Core.Features.Extraction;
 
-public interface IGuardiansCrusadeFileService
+public interface IFileExtractionService
 {
     byte[] ExtractFile(string filePath, int sectorNumber, int sectorSize);
     byte[] ExtractSectionFromFile(string filePath, int startOffset, int endOffset);

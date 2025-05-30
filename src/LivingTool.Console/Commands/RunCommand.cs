@@ -33,7 +33,7 @@ public class RunCommand : AsyncCommand<RunCommandSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RunCommandSettings settings)
     {
-        var guardiansCrusadeFileService = new GuardiansCrusadeFileService();
+        var guardiansCrusadeFileService = new FileExtractionService();
         var unpacker = new GameUnpacker(guardiansCrusadeFileService);
 
         // log the settings
