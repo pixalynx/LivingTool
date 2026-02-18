@@ -67,3 +67,4 @@ After extraction, files are renamed to game-style names such as:
 
 The unpacker uses a hidden location map from the executable to pull specific sector ranges out of the game BIN, then saves them as usable files.
 
+If you want NPC file internals (models, script records, name/dialog pointers), see `NPC_BIN_UNPACKING.md`.

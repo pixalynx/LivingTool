@@ -68,11 +68,25 @@ Reads and displays information from game files:
 livingtool read --file [filename]
 ```
 
+### NPC Decode Command
+
+Decodes an NPC BIN file and lists all parsed names/dialogues:
+
+```bash
+livingtool npc --file output/NPC/NPC07.BIN
+```
+
 ## Project Structure
 
 - `LivingTool.Console` - Command-line interface
 - `LivingTool.Core` - Core functionality and services
 - `LivingTool.Core.Tests` - Unit tests
+
+## Documentation
+
+- High-level ISO extraction flow: `docs/ISO_UNPACKING_HIGH_LEVEL.md`
+- Simplified extraction explanation: `docs/ISO_UNPACKING_FOR_DUMMIES.md`
+- NPC BIN parsing details: `docs/NPC_BIN_UNPACKING.md`
 
 ## Development
 

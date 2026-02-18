@@ -10,5 +10,7 @@ app.Configure(config =>
 {
     config.AddCommand<RunCommand>("run");
     config.AddCommand<ReadCommand>("read");
+    config.AddCommand<NpcDecodeCommand>("npc")
+        .WithDescription("Decode an NPC BIN file and list names/dialogues.");
 });
 return app.Run(args);
