@@ -2,6 +2,10 @@
 
 This document explains how the current `FileExtractionService`-driven pipeline finds and extracts hidden data sectors from the Guardians Crusade PS1 image.
 
+Related format docs:
+
+- NPC BIN structure and parsing: `NPC_BIN_UNPACKING.md`
+
 ## What this unpacker is doing
 
 At a high level, the tool:
@@ -152,4 +156,3 @@ for each unique (sector, length) in entries:
 rename_all_temp_files_by_folder_patterns()
 report_sector_gaps()
 ```
-
