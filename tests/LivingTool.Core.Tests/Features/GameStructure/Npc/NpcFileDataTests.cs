@@ -7,6 +7,7 @@ public class NpcFileDataTests
 {
     [Theory]
     [InlineData("NPC07.BIN", 0x60, 24, 0x60, 0x23C)]
+    [InlineData("NPC08.BIN", 0x70, 28, 0x70, 0x204)]
     [InlineData("NPC11.BIN", 0x78, 30, 0x78, 0x13C)]
     public void NpcFileHeader_ShouldHaveCorrectEntries_BasedOnFileHeaderProvided(
         string file,
@@ -29,6 +30,7 @@ public class NpcFileDataTests
 
     [Theory]
     [InlineData("NPC07.BIN", 12, 10)]
+    [InlineData("NPC08.BIN", 16, 10)]
     [InlineData("NPC11.BIN", 19, 9)]
     public void NpcFileEntry0_ShouldExposeExpectedGroupCounts(string file, int groupA, int groupB) => Test(
         arrange: () =>
@@ -45,6 +47,7 @@ public class NpcFileDataTests
 
     [Theory]
     [InlineData("NPC07.BIN", 59, 0x1894, 0x1CE0, 0x0000, 0x0002)]
+    [InlineData("NPC08.BIN", 102, 0x1F64, 0x2750, 0x0000, 0x0002)]
     [InlineData("NPC11.BIN", 54, 0x142C, 0x1814, 0x0057, 0x0002)]
     public void NpcFileEntitySection_ShouldParseExpectedRecordShape(
         string file,
@@ -70,6 +73,7 @@ public class NpcFileDataTests
 
     [Theory]
     [InlineData("NPC07.BIN", 13, 0, 0x23F0)]
+    [InlineData("NPC08.BIN", 16, 0, 0x2EBC)]
     [InlineData("NPC11.BIN", 19, 0, 0x1D60)]
     public void NpcFileModelSignatures_ShouldExposeExpectedTmdAndTimOffsets(
         string file,
@@ -90,6 +94,7 @@ public class NpcFileDataTests
 
     [Theory]
     [InlineData("NPC07.BIN", "Algo", 0x450, "There are a lot more")]
+    [InlineData("NPC08.BIN", "Mayor", 0x738, "Good morning, $A.")]
     [InlineData("NPC11.BIN", "Informer", 0x51C, "Welcome to Zed Harbor")]
     public void NpcFileEntityText_ShouldExposeNamesAndDialoguePointers(
         string file,
@@ -106,6 +111,20 @@ public class NpcFileDataTests
             header.Names.Should().Contain(expectedName);
             header.NamePointerOffsets.Should().Contain(expectedNamePointer);
             header.Dialogues.Should().Contain(x => x.Contains(expectedDialogueText));
+        });
+
+    [Fact]
+    public void Npc08_ShouldNotIncludeInvalidSingleLetterName_AndShouldDecodeManyDialogues() => Test(
+        arrange: () =>
+        {
+            var filePath = Path.Combine(AppContext.BaseDirectory, "Features/GameStructure/Npc/TestData", "NPC08.BIN");
+            return File.ReadAllBytes(filePath);
+        },
+        assert: (header) =>
+        {
+            header.Names.Should().NotContain("f");
+            header.Names.Should().Contain(new[] { "Mayor", "O'Neal", "Blue Cat" });
+            header.Dialogues.Should().HaveCountGreaterThan(80);
         });
 
     private static void Test(

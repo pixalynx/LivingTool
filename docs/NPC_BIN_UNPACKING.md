@@ -8,6 +8,7 @@ Scope:
 - Tests: `tests/LivingTool.Core.Tests/Features/GameStructure/Npc/NpcFileDataTests.cs`
 - Sample files:
   - `tests/LivingTool.Core.Tests/Features/GameStructure/Npc/TestData/NPC07.BIN`
+  - `tests/LivingTool.Core.Tests/Features/GameStructure/Npc/TestData/NPC08.BIN`
   - `tests/LivingTool.Core.Tests/Features/GameStructure/Npc/TestData/NPC11.BIN`
 
 ## Top-level file layout
@@ -23,6 +24,7 @@ Scope:
 Examples:
 
 - `NPC07.BIN`: `headerSize = 0x60`, pointer count `24`
+- `NPC08.BIN`: `headerSize = 0x70`, pointer count `28`
 - `NPC11.BIN`: `headerSize = 0x78`, pointer count `30`
 
 ## Entry0 (metadata + pointer mini-table)
@@ -43,6 +45,7 @@ Current parser behavior:
 Sample values:
 
 - `NPC07.BIN`: `groupA=12`, `groupB=10`
+- `NPC08.BIN`: `groupA=16`, `groupB=10`
 - `NPC11.BIN`: `groupA=19`, `groupB=9`
 
 ## Entry1 (entity/script/text section)
@@ -72,13 +75,17 @@ Derived fields:
 Sample counts:
 
 - `NPC07.BIN`: `59` records
+- `NPC08.BIN`: `102` records
 - `NPC11.BIN`: `54` records
 
 ## Names and dialogue extraction
 
-Text is extracted from entry1 using opcode-driven pointer scanning in script bytes.
+Text extraction is two-stage:
 
-Current logic:
+1. Pointer-driven extraction from script bytes.
+2. Fallback text-bank extraction for lines not referenced directly by opcodes.
+
+Current pointer-driven logic:
 
 1. For each entity record, scan script bytes in `ScriptAOffset` region.
 2. Name pointer:
@@ -89,16 +96,26 @@ Current logic:
 5. Normalize control bytes:
    - `0x06` and `0x07` are converted to newline separators.
 
+Fallback logic:
+
+1. Enumerate all null-terminated normalized strings in entry1.
+2. Start from the earliest extracted text offset.
+3. Derive names as the first contiguous block of short name-like strings.
+4. Treat remaining strings as dialogue candidates.
+
 Safety/heuristics in current parser:
 
-- Scan range is from current script start to next script start, capped at `+0x180` bytes.
+- Scan range is from current script start to next script start.
 - Pointers outside section bounds are ignored.
+- Pointers must reference a valid string start boundary (`previous byte == 0x00`).
 - Name and dialogue offsets are deduplicated.
 - Dialogue strings shorter than 4 chars are filtered out.
+- Name candidates are filtered (length/character rules) to avoid false positives.
 
 Known-good samples:
 
 - `NPC07.BIN` includes names like `Algo`, `Woman`, `Mary`.
+- `NPC08.BIN` includes names `Mayor`, `O'Neal`, `Blue Cat`.
 - `NPC11.BIN` includes names like `Informer`, `Merchant`, `Sad Man`.
 
 ## Model signature detection
@@ -111,7 +128,29 @@ Current parser scans top-level pointers and classifies by first dword:
 In current test samples:
 
 - `NPC07.BIN`: `13` TMD sections, `0` TIM sections
+- `NPC08.BIN`: `16` TMD sections, `0` TIM sections
 - `NPC11.BIN`: `19` TMD sections, `0` TIM sections
+
+## Console decode output
+
+The `npc` command returns structured JSON by default:
+
+```bash
+livingtool npc --file output/NPC/NPC08.BIN
+```
+
+Optional text mode:
+
+```bash
+livingtool npc --file output/NPC/NPC08.BIN --format text
+```
+
+JSON fields include:
+
+- metadata (`HeaderSize`, `TopLevelEntries`, `GroupACount`, `GroupBCount`)
+- record/text counts (`EntityRecordCount`, `NameCount`, `DialogueCount`)
+- offsets (`TmdOffsets`, `TimOffsets`, `NamePointerOffsets`, `DialoguePointerOffsets`)
+- decoded content (`Names`, `Dialogues`)
 
 ## What is confirmed vs inferred
 
@@ -121,6 +160,7 @@ Confirmed by parser/tests:
 - Entry0 count fields and count relationship
 - Entry1 fixed record sizing
 - Opcode-driven retrieval of names/dialogue pointers
+- Fallback text-bank extraction for non-pointered dialogue entries
 - TMD magic detection at top-level chunk starts
 
 Still inferred / subject to refinement:
@@ -144,3 +184,4 @@ Current NPC tests assert:
 - Entry1 record structure
 - TMD/TIM signature counts
 - Name pointer and dialogue extraction
+- NPC08 regression behavior (`"f"` is not treated as a name; high dialogue coverage)

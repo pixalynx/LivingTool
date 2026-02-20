@@ -182,6 +182,8 @@ public class NpcFileData
 
         var nameOffsets = new HashSet<int>();
         var dialogueOffsets = new HashSet<int>();
+        var nameByOffset = new Dictionary<int, string>();
+        var dialogueByOffset = new Dictionary<int, string>();
 
         foreach (var record in EntityRecords)
         {
@@ -189,19 +191,32 @@ public class NpcFileData
                 continue;
 
             int scriptEnd = GetNextScriptStart(scriptStarts, record.ScriptAOffset, entitySection.Length);
-            int scanEnd = Math.Min(scriptEnd, record.ScriptAOffset + 0x180);
+            int scanEnd = scriptEnd;
 
-            if (TryFindPointerByOpcode(entitySection, 0x1F, record.ScriptAOffset, scanEnd, out int nameOffset) &&
-                TryReadNormalizedString(entitySection, nameOffset, out string name))
+            for (int pos = record.ScriptAOffset; pos + 2 < scanEnd; pos++)
             {
+                if (entitySection[pos] != 0x1F)
+                    continue;
+
+                int nameOffset = BitConverter.ToUInt16(entitySection, pos + 1);
+                if (nameOffset < 0 || nameOffset >= entitySection.Length)
+                    continue;
+
+                if (!TryReadNormalizedString(entitySection, nameOffset, requireStartBoundary: true, out string name))
+                    continue;
+
+                if (!IsLikelyNpcName(name))
+                    continue;
+
                 record.NamePointerOffset = nameOffset;
                 record.Name = name;
 
                 if (nameOffsets.Add(nameOffset))
                 {
-                    NamePointerOffsets.Add(nameOffset);
-                    Names.Add(name);
+                    nameByOffset[nameOffset] = name;
                 }
+
+                break;
             }
 
             for (int pos = record.ScriptAOffset; pos + 2 < scanEnd; pos++)
@@ -216,7 +231,7 @@ public class NpcFileData
                 if (nameOffsets.Contains(dialogueOffset))
                     continue;
 
-                if (!TryReadNormalizedString(entitySection, dialogueOffset, out string dialogue))
+                if (!TryReadNormalizedString(entitySection, dialogueOffset, requireStartBoundary: true, out string dialogue))
                     continue;
 
                 if (dialogue.Length < 4)
@@ -224,46 +239,71 @@ public class NpcFileData
 
                 if (dialogueOffsets.Add(dialogueOffset))
                 {
-                    DialoguePointerOffsets.Add(dialogueOffset);
-                    Dialogues.Add(dialogue);
+                    dialogueByOffset[dialogueOffset] = dialogue;
                 }
             }
         }
-    }
 
-    private static bool TryFindPointerByOpcode(
-        byte[] data,
-        byte opcode,
-        int startOffset,
-        int endOffset,
-        out int pointerOffset)
-    {
-        pointerOffset = -1;
+        var allTextEntries = ExtractAllTextEntries(entitySection);
+        int textStartOffset = DetermineTextStartOffset(allTextEntries, nameOffsets, dialogueOffsets);
+        var textEntries = allTextEntries
+            .Where(x => x.Offset >= textStartOffset)
+            .OrderBy(x => x.Offset)
+            .ToList();
 
-        if (startOffset < 0 || endOffset <= startOffset || endOffset > data.Length)
-            return false;
-
-        for (int i = startOffset; i + 2 < endOffset; i++)
+        var derivedNameEntries = DeriveNameEntries(textEntries);
+        if (derivedNameEntries.Count > 0)
         {
-            if (data[i] != opcode)
-                continue;
-
-            int pointer = BitConverter.ToUInt16(data, i + 1);
-            if (pointer < 0 || pointer >= data.Length)
-                continue;
-
-            pointerOffset = pointer;
-            return true;
+            foreach (var nameEntry in derivedNameEntries)
+            {
+                nameOffsets.Add(nameEntry.Offset);
+                nameByOffset[nameEntry.Offset] = nameEntry.Text;
+            }
         }
 
-        return false;
+        foreach (var textEntry in textEntries)
+        {
+            if (nameOffsets.Contains(textEntry.Offset))
+                continue;
+
+            if (textEntry.Text.Length < 4)
+                continue;
+
+            if (dialogueOffsets.Add(textEntry.Offset))
+            {
+                dialogueByOffset[textEntry.Offset] = textEntry.Text;
+            }
+        }
+
+        NamePointerOffsets.Clear();
+        Names.Clear();
+        foreach (var kv in nameByOffset.OrderBy(x => x.Key))
+        {
+            NamePointerOffsets.Add(kv.Key);
+            Names.Add(kv.Value);
+        }
+
+        DialoguePointerOffsets.Clear();
+        Dialogues.Clear();
+        foreach (var kv in dialogueByOffset.OrderBy(x => x.Key))
+        {
+            DialoguePointerOffsets.Add(kv.Key);
+            Dialogues.Add(kv.Value);
+        }
     }
 
-    private static bool TryReadNormalizedString(byte[] data, int offset, out string value)
+    private static bool TryReadNormalizedString(
+        byte[] data,
+        int offset,
+        bool requireStartBoundary,
+        out string value)
     {
         value = string.Empty;
 
         if (!CanRead(data, offset, 1))
+            return false;
+
+        if (requireStartBoundary && offset > 0 && data[offset - 1] != 0x00)
             return false;
 
         byte first = data[offset];
@@ -299,6 +339,88 @@ public class NpcFileData
 
         value = sb.ToString().Trim();
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static List<NpcTextEntry> ExtractAllTextEntries(byte[] entitySection)
+    {
+        var entries = new List<NpcTextEntry>();
+
+        for (int offset = 0; offset < entitySection.Length; offset++)
+        {
+            if (offset > 0 && entitySection[offset - 1] != 0x00)
+                continue;
+
+            if (!TryReadNormalizedString(entitySection, offset, requireStartBoundary: false, out string value))
+                continue;
+
+            if (value.Length < 3)
+                continue;
+
+            if (!value.Any(c => char.IsLetter(c) || c == '?'))
+                continue;
+
+            entries.Add(new NpcTextEntry(offset, value));
+        }
+
+        return entries;
+    }
+
+    private static int DetermineTextStartOffset(
+        List<NpcTextEntry> allTextEntries,
+        HashSet<int> nameOffsets,
+        HashSet<int> dialogueOffsets)
+    {
+        if (nameOffsets.Count > 0)
+            return nameOffsets.Min();
+
+        if (dialogueOffsets.Count > 0)
+            return dialogueOffsets.Min();
+
+        return allTextEntries.Count > 0 ? allTextEntries.Min(x => x.Offset) : 0;
+    }
+
+    private static List<NpcTextEntry> DeriveNameEntries(List<NpcTextEntry> textEntries)
+    {
+        var names = new List<NpcTextEntry>();
+        if (textEntries.Count == 0)
+            return names;
+
+        int start = textEntries.FindIndex(x => IsLikelyNpcName(x.Text));
+        if (start < 0)
+            return names;
+
+        for (int i = start; i < textEntries.Count; i++)
+        {
+            if (!IsLikelyNpcName(textEntries[i].Text))
+                break;
+
+            names.Add(textEntries[i]);
+        }
+
+        return names;
+    }
+
+    private static bool IsLikelyNpcName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (value.Length < 2 || value.Length > 24)
+            return false;
+
+        if (value.Contains('\n'))
+            return false;
+
+        if (value.Any(char.IsDigit))
+            return false;
+
+        if (value.Contains('$') || value.Contains('~'))
+            return false;
+
+        if (value.Contains('.') || value.Contains('!') || value.Contains(',') || value.Contains(':'))
+            return false;
+
+        return value.Any(char.IsLetter) || value.All(c => c == '?');
     }
 
     private int GetSectionEndOffset(int entryIndex, int fileLength)
@@ -356,6 +478,8 @@ public class NpcEntityRecord
         return $"[{Index}] A=0x{ScriptAOffset:X4} C=0x{ScriptCOffset:X4} Type=0x{TypeId:X4} Flags=0x{Flags:X4}";
     }
 }
+
+public record NpcTextEntry(int Offset, string Text);
 
 public class PointerEntry
 {
