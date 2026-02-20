@@ -23,6 +23,9 @@
     <None Update="Features\GameStructure\NPC\TestData\NPC07.BIN">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Features\GameStructure\Npc\TestData\NPC08.BIN">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Features\GameStructure\Npc\TestData\NPC11.BIN">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

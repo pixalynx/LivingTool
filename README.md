@@ -28,6 +28,8 @@ Extract the zip file and run the executable.
 Requirements:
 
 - .NET 9.0 SDK or later
+- Node.js 18+ (for the desktop app frontend)
+- Rust toolchain (for Tauri desktop builds)
 
 ```bash
 # Clone the repository
@@ -39,6 +41,11 @@ dotnet build
 
 # Run the application
 dotnet run --project src/LivingTool.Console
+
+# Run the desktop app
+cd src/LivingTool.Desktop
+npm install
+npm run tauri dev
 ```
 
 ## Usage
@@ -70,17 +77,23 @@ livingtool read --file [filename]
 
 ### NPC Decode Command
 
-Decodes an NPC BIN file and lists all parsed names/dialogues:
+Decodes an NPC BIN file and returns structured output (JSON by default):
 
 ```bash
 livingtool npc --file output/NPC/NPC07.BIN
 ```
+
+Optional output mode:
+
+- `--format json` (default)
+- `--format text`
 
 ## Project Structure
 
 - `LivingTool.Console` - Command-line interface
 - `LivingTool.Core` - Core functionality and services
 - `LivingTool.Core.Tests` - Unit tests
+- `LivingTool.Desktop` - Tauri desktop UI (React + TypeScript + TailwindCSS) that runs `LivingTool.Console` commands
 
 ## Documentation
 
